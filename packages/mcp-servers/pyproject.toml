@@ -1,0 +1,23 @@
+[project]
+name = "vc-engine-mcp-servers"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.10.0",
+    "pandas>=2.2.0",
+    "openpyxl>=3.1.0",
+    "scikit-learn>=1.6.0",
+    "shap>=0.46.0",
+    "matplotlib>=3.9.0",
+    "plotly>=5.24.0",
+    "scipy>=1.14.0",
+    "numpy>=1.26.0",
+]
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

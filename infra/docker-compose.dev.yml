@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../apps/api/src:/app/src
+      - ../data/uploads:/app/data/uploads
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      LOG_LEVEL: DEBUG
+
+  worker:
+    volumes:
+      - ../apps/api/src:/app/src
+      - ../data/uploads:/app/data/uploads
+    environment:
+      LOG_LEVEL: DEBUG
+
+  web:
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../apps/web/src:/app/src
+    environment:
+      NODE_ENV: development

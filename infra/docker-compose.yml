@@ -1,0 +1,105 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vcengine}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vcengine}
+      POSTGRES_DB: ${POSTGRES_DB:-vcengine}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vcengine}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vcnet
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vcnet
+
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vcengine}:${POSTGRES_PASSWORD:-vcengine}@postgres:5432/${POSTGRES_DB:-vcengine}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ../data/uploads:/app/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - vcnet
+
+  worker:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: python -m arq app.worker.main.WorkerSettings
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vcengine}:${POSTGRES_PASSWORD:-vcengine}@postgres:5432/${POSTGRES_DB:-vcengine}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ../data/uploads:/app/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    networks:
+      - vcnet
+
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - vcnet
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  vcnet:
+    driver: bridge
