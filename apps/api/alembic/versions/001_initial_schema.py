@@ -9,7 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID, JSONB, TIMESTAMPTZ
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 revision: str = "001"
 down_revision: Union[str, None] = None
@@ -28,13 +28,13 @@ def upgrade() -> None:
         sa.Column("status", sa.VARCHAR(20), server_default="active", nullable=False),
         sa.Column(
             "created_at",
-            TIMESTAMPTZ,
+            sa.TIMESTAMP(timezone=True),
             server_default=sa.func.now(),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
-            TIMESTAMPTZ,
+            sa.TIMESTAMP(timezone=True),
             server_default=sa.func.now(),
             onupdate=sa.func.now(),
             nullable=False,
@@ -59,7 +59,7 @@ def upgrade() -> None:
         sa.Column("column_count", sa.INTEGER, nullable=True),
         sa.Column(
             "created_at",
-            TIMESTAMPTZ,
+            sa.TIMESTAMP(timezone=True),
             server_default=sa.func.now(),
             nullable=False,
         ),
@@ -103,7 +103,7 @@ def upgrade() -> None:
         sa.Column("payload", JSONB, nullable=True),
         sa.Column(
             "created_at",
-            TIMESTAMPTZ,
+            sa.TIMESTAMP(timezone=True),
             server_default=sa.func.now(),
             nullable=False,
         ),
@@ -129,11 +129,11 @@ def upgrade() -> None:
         sa.Column("execution_time", sa.FLOAT, nullable=True),
         sa.Column(
             "created_at",
-            TIMESTAMPTZ,
+            sa.TIMESTAMP(timezone=True),
             server_default=sa.func.now(),
             nullable=False,
         ),
-        sa.Column("resolved_at", TIMESTAMPTZ, nullable=True),
+        sa.Column("resolved_at", sa.TIMESTAMP(timezone=True), nullable=True),
     )
     op.create_index("ix_code_proposals_session_id", "code_proposals", ["session_id"])
     op.create_index("ix_code_proposals_created_at", "code_proposals", ["created_at"])
@@ -153,7 +153,7 @@ def upgrade() -> None:
         sa.Column("metadata_", JSONB, nullable=True),
         sa.Column(
             "created_at",
-            TIMESTAMPTZ,
+            sa.TIMESTAMP(timezone=True),
             server_default=sa.func.now(),
             nullable=False,
         ),
@@ -175,7 +175,7 @@ def upgrade() -> None:
         sa.Column("version", sa.INTEGER, server_default="1", nullable=False),
         sa.Column(
             "updated_at",
-            TIMESTAMPTZ,
+            sa.TIMESTAMP(timezone=True),
             server_default=sa.func.now(),
             onupdate=sa.func.now(),
             nullable=False,

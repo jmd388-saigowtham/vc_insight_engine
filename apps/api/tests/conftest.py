@@ -5,9 +5,37 @@ from collections.abc import AsyncGenerator, Generator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.models.base import Base
+
+# Register PostgreSQL type adapters for SQLite testing
+from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import JSON, String
+
+# Map PostgreSQL types to SQLite-compatible types
+from sqlalchemy.dialects import sqlite
+
+
+@event.listens_for(sqlite.dialect, "do_connect")
+def _set_sqlite_pragma(dbapi_connection, connection_record, *args, **kwargs):
+    pass
+
+
+# Monkey-patch JSONB and UUID to compile in SQLite
+from sqlalchemy.ext.compiler import compiles
+
+
+@compiles(JSONB, "sqlite")
+def _compile_jsonb_sqlite(element, compiler, **kw):
+    return "JSON"
+
+
+@compiles(UUID, "sqlite")
+def _compile_uuid_sqlite(element, compiler, **kw):
+    return "VARCHAR(36)"
+
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 

@@ -4,8 +4,8 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Float, ForeignKey, Index, String, Text
-from sqlalchemy.dialects.postgresql import TIMESTAMPTZ, UUID
+from sqlalchemy import TIMESTAMP, Float, ForeignKey, Index, String, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -33,6 +33,6 @@ class CodeProposal(UUIDMixin, TimestampMixin, Base):
     result_stdout: Mapped[str | None] = mapped_column(Text, nullable=True)
     result_stderr: Mapped[str | None] = mapped_column(Text, nullable=True)
     execution_time: Mapped[float | None] = mapped_column(Float, nullable=True)
-    resolved_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ, nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
 
     session: Mapped[Session] = relationship(back_populates="code_proposals")
