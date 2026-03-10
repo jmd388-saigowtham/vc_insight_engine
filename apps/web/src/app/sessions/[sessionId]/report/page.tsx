@@ -185,6 +185,21 @@ export default function ReportPage() {
                 </a>
               </Button>
             )}
+            {report.export_urls.json && (
+              <Button
+                variant="outline"
+                className="gap-2"
+                asChild
+              >
+                <a
+                  href={`${BASE_URL}${report.export_urls.json}`}
+                  download
+                >
+                  <FileText className="h-4 w-4" />
+                  JSON
+                </a>
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

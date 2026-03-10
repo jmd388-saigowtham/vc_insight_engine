@@ -7,9 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db_session
+from app.dependencies import get_db_session, get_event_service
 from app.models.code_proposal import CodeProposal
 from app.schemas.code import CodeApprovalRequest, CodeProposalResponse
+from app.schemas.event import TraceEventCreate
+from app.services.event_service import EventService
 
 router = APIRouter()
 
@@ -37,6 +39,7 @@ async def approve_proposal(
     proposal_id: uuid.UUID,
     data: CodeApprovalRequest | None = None,
     db: AsyncSession = Depends(get_db_session),
+    event_service: EventService = Depends(get_event_service),
 ) -> CodeProposalResponse:
     proposal = await db.get(CodeProposal, proposal_id)
     if proposal is None:
@@ -46,8 +49,40 @@ async def approve_proposal(
 
     proposal.status = "approved"
     proposal.resolved_at = datetime.now(timezone.utc)
+
+    # Persist user-edited code if provided
+    edited = False
+    if data and data.code and data.code != proposal.code:
+        proposal.code = data.code
+        edited = True
+
     await db.commit()
     await db.refresh(proposal)
+
+    # Emit CODE_EDITED event if code was changed, then CODE_APPROVED
+    try:
+        if edited:
+            await event_service.emit(
+                db,
+                proposal.session_id,
+                TraceEventCreate(
+                    event_type="CODE_EDITED",
+                    step=proposal.step,
+                    payload={"proposal_id": str(proposal.id)},
+                ),
+            )
+        await event_service.emit(
+            db,
+            proposal.session_id,
+            TraceEventCreate(
+                event_type="CODE_APPROVED",
+                step=proposal.step,
+                payload={"proposal_id": str(proposal.id), "edited": edited},
+            ),
+        )
+    except Exception:
+        pass
+
     return CodeProposalResponse.model_validate(proposal)
 
 
@@ -56,6 +91,7 @@ async def deny_proposal(
     proposal_id: uuid.UUID,
     data: CodeApprovalRequest | None = None,
     db: AsyncSession = Depends(get_db_session),
+    event_service: EventService = Depends(get_event_service),
 ) -> CodeProposalResponse:
     proposal = await db.get(CodeProposal, proposal_id)
     if proposal is None:
@@ -69,4 +105,22 @@ async def deny_proposal(
         proposal.result_stderr = data.feedback
     await db.commit()
     await db.refresh(proposal)
+
+    # Emit CODE_DENIED event
+    try:
+        await event_service.emit(
+            db,
+            proposal.session_id,
+            TraceEventCreate(
+                event_type="CODE_DENIED",
+                step=proposal.step,
+                payload={
+                    "proposal_id": str(proposal.id),
+                    "feedback": data.feedback if data else "",
+                },
+            ),
+        )
+    except Exception:
+        pass
+
     return CodeProposalResponse.model_validate(proposal)

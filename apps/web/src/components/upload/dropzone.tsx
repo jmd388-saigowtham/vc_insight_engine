@@ -43,7 +43,7 @@ export function Dropzone({ onUpload, disabled }: DropzoneProps) {
         ".xlsx",
       ],
     },
-    maxSize: 100 * 1024 * 1024,
+    maxSize: 500 * 1024 * 1024,
     disabled: disabled || uploading,
   });
 
@@ -74,7 +74,7 @@ export function Dropzone({ onUpload, disabled }: DropzoneProps) {
               Drag & drop files here, or click to browse
             </p>
             <p className="text-xs text-muted-foreground">
-              CSV or XLSX files up to 100MB
+              CSV or XLSX files up to 500MB
             </p>
           </>
         )}

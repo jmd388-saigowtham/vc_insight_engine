@@ -24,7 +24,21 @@ class ProfilingService:
         if uploaded is None:
             raise ValueError(f"File {file_id} not found")
 
-        df = self._read_file(uploaded.storage_path, uploaded.file_type, uploaded.size_bytes)
+        # For XLSX files with multiple sheets, profile the first sheet
+        # and log available sheets for user awareness
+        sheet_name: int | str = 0
+        if uploaded.file_type == "xlsx":
+            sheet_names = self.get_xlsx_sheet_names(uploaded.storage_path)
+            if len(sheet_names) > 1:
+                # Store sheet names metadata on the uploaded file
+                if hasattr(uploaded, "metadata_") and uploaded.metadata_ is not None:
+                    uploaded.metadata_["sheet_names"] = sheet_names
+                    uploaded.metadata_["profiled_sheet"] = sheet_names[0]
+
+        df = self._read_file(
+            uploaded.storage_path, uploaded.file_type, uploaded.size_bytes,
+            sheet_name=sheet_name,
+        )
 
         uploaded.row_count = len(df)
         uploaded.column_count = len(df.columns)
@@ -41,7 +55,9 @@ class ProfilingService:
             await self.db.refresh(p)
         return profiles
 
-    def _read_file(self, storage_path: str, file_type: str, size_bytes: int) -> pd.DataFrame:
+    def _read_file(
+        self, storage_path: str, file_type: str, size_bytes: int, sheet_name: int | str = 0
+    ) -> pd.DataFrame:
         path = Path(storage_path)
         if file_type == "csv":
             if size_bytes > LARGE_FILE_THRESHOLD:
@@ -49,10 +65,21 @@ class ProfilingService:
             return pd.read_csv(path)
         elif file_type == "xlsx":
             if size_bytes > LARGE_FILE_THRESHOLD:
-                return pd.read_excel(path, nrows=SAMPLE_ROWS)
-            return pd.read_excel(path)
+                return pd.read_excel(path, nrows=SAMPLE_ROWS, sheet_name=sheet_name)
+            return pd.read_excel(path, sheet_name=sheet_name)
         else:
             raise ValueError(f"Unsupported file type: {file_type}")
+
+    def get_xlsx_sheet_names(self, storage_path: str) -> list[str]:
+        """Return the list of sheet names in an XLSX file."""
+        path = Path(storage_path)
+        if not path.exists():
+            return []
+        try:
+            xls = pd.ExcelFile(path)
+            return xls.sheet_names
+        except Exception:
+            return []
 
     def _profile_column(
         self,

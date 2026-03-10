@@ -96,7 +96,17 @@ _DANGEROUS_ATTR_CHAINS: list[list[str]] = [
     ["subprocess", "check_output"],
     ["shutil", "rmtree"],
     ["shutil", "move"],
+    ["socket", "socket"],
+    ["socket", "create_connection"],
+    ["urllib", "request"],
+    ["http", "client"],
 ]
+
+# Modules that must never be imported (network access)
+_BLOCKED_IMPORTS: set[str] = {
+    "socket", "http", "urllib", "requests", "httpx", "aiohttp",
+    "ftplib", "smtplib", "xmlrpc", "ssl", "websocket",
+}
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -130,14 +140,18 @@ class _SafetyVisitor(ast.NodeVisitor):
     def visit_Import(self, node: ast.Import) -> None:
         for alias in node.names:
             top_level = alias.name.split(".")[0]
-            if top_level not in self.allowed_imports:
+            if top_level in _BLOCKED_IMPORTS:
+                self.issues.append(f"Network module blocked: {alias.name}")
+            elif top_level not in self.allowed_imports:
                 self.issues.append(f"Import not allowed: {alias.name}")
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         if node.module:
             top_level = node.module.split(".")[0]
-            if top_level not in self.allowed_imports:
+            if top_level in _BLOCKED_IMPORTS:
+                self.issues.append(f"Network module blocked: {node.module}")
+            elif top_level not in self.allowed_imports:
                 self.issues.append(f"Import not allowed: {node.module}")
         self.generic_visit(node)
 
@@ -228,7 +242,16 @@ def run(input: ExecutionInput) -> CodeExecutionResult:
     except Exception:
         pass
 
-    # 5. Run in subprocess
+    # 5. Build restricted environment (strip network proxy vars)
+    env = dict(os.environ)
+    for key in list(env.keys()):
+        if key.lower() in (
+            "http_proxy", "https_proxy", "no_proxy", "all_proxy",
+            "ftp_proxy", "socks_proxy",
+        ):
+            del env[key]
+
+    # 6. Run in subprocess
     start = time.perf_counter()
     try:
         result = subprocess.run(
@@ -237,10 +260,11 @@ def run(input: ExecutionInput) -> CodeExecutionResult:
             text=True,
             timeout=input.timeout,
             cwd=str(work_dir),
+            env=env,
         )
         elapsed = time.perf_counter() - start
 
-        # 6. Detect newly created files
+        # 7. Detect newly created files
         files_after = set()
         try:
             files_after = {str(p) for p in work_dir.rglob("*") if p.is_file()}

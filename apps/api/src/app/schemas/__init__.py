@@ -1,6 +1,13 @@
 from app.schemas.code import CodeApprovalRequest, CodeProposalCreate, CodeProposalResponse
 from app.schemas.event import SSEEvent, TraceEventCreate, TraceEventResponse
 from app.schemas.profile import ColumnProfileResponse, ProfileSummary
+from app.schemas.proposal import (
+    ProposalResponse,
+    ProposalRevisionRequest,
+    ProposalSelectionRequest,
+    UserFeedbackCreate,
+    UserFeedbackResponse,
+)
 from app.schemas.session import SessionCreate, SessionResponse, SessionUpdate
 from app.schemas.upload import FileListResponse, UploadResponse
 
@@ -18,4 +25,9 @@ __all__ = [
     "CodeProposalCreate",
     "CodeProposalResponse",
     "CodeApprovalRequest",
+    "ProposalResponse",
+    "ProposalRevisionRequest",
+    "ProposalSelectionRequest",
+    "UserFeedbackCreate",
+    "UserFeedbackResponse",
 ]

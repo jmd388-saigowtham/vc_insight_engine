@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
 import { useSessionStore } from "@/stores/session-store";
-import { useUpdateSession } from "@/hooks/use-session";
+import { useWizardNavigation } from "@/hooks/use-wizard-navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,11 +34,8 @@ const INDUSTRIES = [
 ];
 
 export default function OnboardingPage() {
-  const params = useParams();
-  const router = useRouter();
-  const sessionId = params.sessionId as string;
   const session = useSessionStore((s) => s.session);
-  const updateSession = useUpdateSession(sessionId);
+  const { navigateToNext, isPending } = useWizardNavigation("onboarding");
 
   const [companyName, setCompanyName] = useState(
     session?.company_name || "",
@@ -57,22 +53,7 @@ export default function OnboardingPage() {
       return;
     }
 
-    updateSession.mutate(
-      {
-        company_name: companyName,
-        industry,
-        business_context: businessContext,
-        current_step: "upload",
-      },
-      {
-        onSuccess: () => {
-          router.push(`/sessions/${sessionId}/upload`);
-        },
-        onError: () => {
-          toast.error("Failed to save. Please try again.");
-        },
-      },
-    );
+    navigateToNext("upload", { company_name: companyName, industry, business_context: businessContext });
   }
 
   return (
@@ -134,9 +115,9 @@ export default function OnboardingPage() {
             <Button
               type="submit"
               className="w-full gap-2"
-              disabled={updateSession.isPending}
+              disabled={isPending}
             >
-              {updateSession.isPending ? (
+              {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <ArrowRight className="h-4 w-4" />

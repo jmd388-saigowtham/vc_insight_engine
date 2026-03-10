@@ -1,5 +1,21 @@
 """Session context document management."""
 
-from .server import get_section, read, upsert
+from .server import (
+    append_to_revision_history,
+    get_section,
+    get_section_metadata,
+    initialize,
+    read,
+    upsert,
+    upsert_structured,
+)
 
-__all__ = ["get_section", "read", "upsert"]
+__all__ = [
+    "append_to_revision_history",
+    "get_section",
+    "get_section_metadata",
+    "initialize",
+    "read",
+    "upsert",
+    "upsert_structured",
+]

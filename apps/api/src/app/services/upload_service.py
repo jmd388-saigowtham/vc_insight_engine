@@ -41,7 +41,7 @@ class UploadService:
                 detail=f"File too large. Maximum size: {settings.max_upload_size_mb}MB",
             )
 
-        storage_path = self.storage.save_file(content, file.filename)
+        storage_path = self.storage.save_file(content, file.filename, session_id=str(session_id))
 
         file_type = ext.lstrip(".")
         uploaded = UploadedFile(

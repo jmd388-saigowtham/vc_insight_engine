@@ -1,8 +1,8 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useArtifacts } from "@/hooks/use-artifacts";
-import { useUpdateSession } from "@/hooks/use-session";
+import { useWizardNavigation } from "@/hooks/use-wizard-navigation";
 import { ChartGrid } from "@/components/charts/chart-grid";
 import {
   Card,
@@ -18,16 +18,16 @@ import type { Artifact } from "@/types/api";
 
 export default function ShapPage() {
   const params = useParams();
-  const router = useRouter();
   const sessionId = params.sessionId as string;
   const { data: artifacts, isLoading } = useArtifacts(sessionId, "shap");
-  const updateSession = useUpdateSession(sessionId);
+  const { navigateToNext, isPending } = useWizardNavigation("shap");
 
   const summaryPlot = artifacts?.find((a) =>
     a.title.toLowerCase().includes("summary"),
   );
-  const barChart = artifacts?.find((a) =>
-    a.title.toLowerCase().includes("importance"),
+  const barChart = artifacts?.find(
+    (a) =>
+      a.title.toLowerCase().includes("importance") && a !== summaryPlot,
   );
   const waterfallPlots =
     artifacts?.filter((a) =>
@@ -42,13 +42,7 @@ export default function ShapPage() {
     ) ?? [];
 
   function handleContinue() {
-    updateSession.mutate(
-      { current_step: "report" },
-      {
-        onSuccess: () =>
-          router.push(`/sessions/${sessionId}/report`),
-      },
-    );
+    navigateToNext("report");
   }
 
   if (isLoading) {
@@ -91,7 +85,7 @@ export default function ShapPage() {
           <CardContent>
             {summaryPlot.file_path && (
               <img
-                src={`${BASE_URL}/artifacts/${summaryPlot.file_path}`}
+                src={`${BASE_URL}${summaryPlot.file_path}`}
                 alt={summaryPlot.title}
                 className="w-full rounded-md"
               />
@@ -109,7 +103,7 @@ export default function ShapPage() {
           <CardContent>
             {barChart.file_path && (
               <img
-                src={`${BASE_URL}/artifacts/${barChart.file_path}`}
+                src={`${BASE_URL}${barChart.file_path}`}
                 alt={barChart.title}
                 className="w-full rounded-md"
               />
@@ -136,9 +130,9 @@ export default function ShapPage() {
           className="gap-2"
           size="lg"
           onClick={handleContinue}
-          disabled={updateSession.isPending}
+          disabled={isPending}
         >
-          {updateSession.isPending ? (
+          {isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <ArrowRight className="h-4 w-4" />

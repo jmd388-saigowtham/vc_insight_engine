@@ -79,7 +79,10 @@ class Feature(BaseModel):
 class ModelResult(BaseModel):
     model_name: str
     model_type: str  # logistic_regression, random_forest, gradient_boosting, xgboost
-    metrics: dict[str, float]  # accuracy, precision, recall, f1, auc
+    metrics: dict[str, float]  # test set: accuracy, precision, recall, f1, auc
+    train_metrics: dict[str, float] = Field(default_factory=dict)
+    val_metrics: dict[str, float] = Field(default_factory=dict)
+    diagnostics: dict[str, Any] = Field(default_factory=dict)
     best: bool = False
     model_path: str | None = None
 
@@ -96,6 +99,31 @@ class Report(BaseModel):
     key_findings: list[str]
     recommendations: list[str]
     report_path: str | None = None
+
+
+class CalibrationResult(BaseModel):
+    brier_score: float
+    is_well_calibrated: bool
+    reliability_plot_path: str | None = None
+
+
+class LearningCurveResult(BaseModel):
+    train_sizes: list[int]
+    train_scores_mean: list[float]
+    test_scores_mean: list[float]
+    plot_path: str | None = None
+    diagnosis: str = ""
+
+
+class ModelCard(BaseModel):
+    model_name: str
+    architecture: str
+    hyperparameters: dict[str, Any] = Field(default_factory=dict)
+    performance: dict[str, float] = Field(default_factory=dict)
+    top_features: list[dict[str, Any]] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    intended_use: str = ""
+    training_data_summary: str = ""
 
 
 class CodeExecutionResult(BaseModel):

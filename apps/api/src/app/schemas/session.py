@@ -17,6 +17,9 @@ class SessionUpdate(BaseModel):
     industry: str | None = None
     business_context: str | None = None
     current_step: str | None = None
+    step_states: dict | None = None
+    target_column: str | None = None
+    selected_features: list[str] | None = None
 
 
 class SessionResponse(BaseModel):
@@ -28,5 +31,8 @@ class SessionResponse(BaseModel):
     business_context: str | None
     current_step: str
     status: str
+    step_states: dict | None = None
+    target_column: str | None = None
+    selected_features: list[str] | None = None
     created_at: datetime
     updated_at: datetime

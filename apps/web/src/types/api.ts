@@ -1,3 +1,15 @@
+export interface FeatureSelectionData {
+  target_column: string;
+  features: {
+    name: string;
+    importance: number;
+    reasoning: string;
+    selected: boolean;
+    source?: string;
+    leakage_risk?: boolean;
+  }[];
+}
+
 export interface UploadedFile {
   id: string;
   session_id: string;
@@ -6,26 +18,40 @@ export interface UploadedFile {
   size_bytes: number;
   row_count: number | null;
   column_count: number | null;
-  uploaded_at: string;
+  created_at: string;
 }
 
 export interface ColumnProfile {
   id: string;
   file_id: string;
   column_name: string;
-  data_type: string;
-  null_percentage: number;
-  unique_count: number;
+  dtype: string;
+  null_count: number | null;
+  null_pct: number | null;
+  unique_count: number | null;
   min_value: string | null;
   max_value: string | null;
   mean_value: number | null;
-  sample_values: string[];
+  sample_values: unknown[] | null;
   description: string | null;
 }
 
 export interface TableProfile {
-  file: UploadedFile;
+  file_id: string;
+  filename: string;
+  row_count: number | null;
+  column_count: number | null;
   columns: ColumnProfile[];
+}
+
+export interface CodeContext {
+  ai_explanation: string;
+  tool_tried: string;
+  tool_insufficiency: string;
+  alternative_strategies: string[];
+  denial_count: number;
+  max_denials: number;
+  denial_feedback: string[];
 }
 
 export interface CodeProposal {
@@ -36,13 +62,15 @@ export interface CodeProposal {
   code: string;
   description: string;
   status: "pending" | "approved" | "denied";
+  node_name?: string;
+  context?: CodeContext;
 }
 
 export interface Artifact {
   id: string;
   session_id: string;
   step: string;
-  artifact_type: "image" | "html" | "json" | "csv" | "text";
+  artifact_type: string;  // "eda" | "shap" | "model" | "hypothesis" | "report" | etc
   title: string;
   description: string;
   file_path: string | null;
@@ -68,6 +96,30 @@ export interface HypothesisResult {
   supported: boolean;
 }
 
+export interface ModelMetrics {
+  accuracy: number;
+  precision: number;
+  recall: number;
+  f1: number;
+  roc_auc: number;
+}
+
+export interface ModelDiagnostics {
+  status: "good_fit" | "overfitting" | "underfitting";
+  message: string;
+  train_test_gap: number;
+  primary_metric: string;
+  threshold_info?: ThresholdInfo;
+}
+
+export interface ThresholdInfo {
+  threshold: number;
+  method: string;
+  f1_at_threshold?: number;
+  precision_at_threshold?: number;
+  recall_at_threshold?: number;
+}
+
 export interface ModelResult {
   id: string;
   session_id: string;
@@ -79,6 +131,49 @@ export interface ModelResult {
   auc_roc: number;
   is_best: boolean;
   confusion_matrix: number[][] | null;
+  train_metrics: ModelMetrics | null;
+  val_metrics: ModelMetrics | null;
+  diagnostics: ModelDiagnostics | null;
+  threshold_info: ThresholdInfo | null;
+}
+
+export interface DatasetEntry {
+  id: string;
+  session_id: string;
+  source_type: string;
+  name: string;
+  file_path: string;
+  row_count: number | null;
+  column_count: number | null;
+  parent_dataset_id: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string | null;
+}
+
+export interface BusinessProposal {
+  id: string;
+  session_id: string;
+  step: string;
+  proposal_type: string;
+  status: "pending" | "approved" | "revised" | "rejected";
+  version: number;
+  plan: Record<string, unknown> | null;
+  summary: string | null;
+  ai_reasoning: string | null;
+  alternatives: Record<string, unknown>[] | null;
+  user_feedback: string | null;
+  parent_id: string | null;
+  resolved_at: string | null;
+  created_at: string;
+}
+
+export interface UserFeedbackEntry {
+  id: string;
+  session_id: string;
+  step: string | null;
+  message: string;
+  status: "pending" | "acknowledged" | "applied";
+  created_at: string;
 }
 
 export interface Report {
@@ -91,5 +186,6 @@ export interface Report {
     pdf?: string;
     pptx?: string;
     csv?: string;
+    json?: string;
   };
 }

@@ -4,8 +4,8 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import TIMESTAMP, Float, ForeignKey, Index, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import TIMESTAMP, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -34,5 +34,19 @@ class CodeProposal(UUIDMixin, TimestampMixin, Base):
     result_stderr: Mapped[str | None] = mapped_column(Text, nullable=True)
     execution_time: Mapped[float | None] = mapped_column(Float, nullable=True)
     resolved_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    node_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    context: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    version: Mapped[int] = mapped_column(
+        Integer, server_default="1", nullable=False
+    )
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("code_proposals.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     session: Mapped[Session] = relationship(back_populates="code_proposals")
+    parent: Mapped[CodeProposal | None] = relationship(
+        remote_side="CodeProposal.id", foreign_keys=[parent_id]
+    )

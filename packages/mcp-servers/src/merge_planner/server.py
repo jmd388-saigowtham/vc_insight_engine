@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from itertools import combinations
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 from pydantic import BaseModel, Field
@@ -57,6 +56,7 @@ class MergeResult(BaseModel):
     column_count: int
     columns: list[str]
     errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +183,7 @@ def generate_merge_code(plan: MergePlan) -> str:
 
 def execute_merge(plan: MergePlan, output_path: str) -> MergeResult:
     """Execute a merge plan and save the result."""
-    errors: list[str] = []
+    warnings: list[str] = []
     try:
         left_path = _validate_path(plan.left_table)
         right_path = _validate_path(plan.right_table)
@@ -211,6 +211,20 @@ def execute_merge(plan: MergePlan, output_path: str) -> MergeResult:
                 errors=[f"Key '{plan.right_key}' not found in right table"],
             )
 
+        # Many-to-many join explosion detection
+        left_dups = left_df[plan.left_key].duplicated().any()
+        right_dups = right_df[plan.right_key].duplicated().any()
+        if left_dups and right_dups:
+            left_dup_count = int(left_df[plan.left_key].duplicated().sum())
+            right_dup_count = int(right_df[plan.right_key].duplicated().sum())
+            est_max = len(left_df) * len(right_df)
+            warnings.append(
+                f"Many-to-many join detected: left key '{plan.left_key}' has "
+                f"{left_dup_count} duplicate(s), right key '{plan.right_key}' has "
+                f"{right_dup_count} duplicate(s). Output may contain up to "
+                f"{est_max:,} rows (row explosion risk)."
+            )
+
         merged = pd.merge(
             left_df,
             right_df,
@@ -218,6 +232,14 @@ def execute_merge(plan: MergePlan, output_path: str) -> MergeResult:
             right_on=plan.right_key,
             how=plan.merge_type,
         )
+
+        # Post-merge explosion check
+        expected_max = max(len(left_df), len(right_df)) * 2
+        if len(merged) > expected_max:
+            warnings.append(
+                f"Row explosion occurred: input had {len(left_df)} + {len(right_df)} "
+                f"rows, output has {len(merged)} rows."
+            )
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
         _save_df(merged, out_path)
@@ -228,6 +250,7 @@ def execute_merge(plan: MergePlan, output_path: str) -> MergeResult:
             row_count=len(merged),
             column_count=len(merged.columns),
             columns=[str(c) for c in merged.columns],
+            warnings=warnings,
         )
     except Exception as exc:
         return MergeResult(

@@ -31,3 +31,10 @@ export function useUpdateSession(id: string) {
     },
   });
 }
+
+export function useSessions() {
+  return useQuery({
+    queryKey: ["sessions"],
+    queryFn: () => api.get<Session[]>("/sessions"),
+  });
+}

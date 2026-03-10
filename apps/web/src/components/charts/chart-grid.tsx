@@ -31,25 +31,35 @@ export function ChartGrid({ artifacts, loading }: ChartGridProps) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-72" />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="rounded-lg border space-y-3">
+            <div className="p-4 pb-0 space-y-1">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-48" />
+            </div>
+            <div className="px-4 pb-4">
+              <Skeleton className="h-48 w-full rounded-md" />
+            </div>
+          </div>
         ))}
       </div>
     );
   }
 
-  if (artifacts.length === 0) {
+  if (!artifacts || artifacts.length === 0) {
     return (
-      <p className="py-12 text-center text-sm text-muted-foreground">
-        No visualizations available yet.
-      </p>
+      <div className="rounded-lg border border-dashed p-12 text-center">
+        <p className="text-sm text-muted-foreground">
+          No visualizations available yet. Run the analysis to generate charts.
+        </p>
+      </div>
     );
   }
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {artifacts.map((artifact) => (
           <Card
             key={artifact.id}
@@ -60,27 +70,27 @@ export function ChartGrid({ artifacts, loading }: ChartGridProps) {
               <div className="flex items-start justify-between">
                 <div>
                   <CardTitle className="text-sm">{artifact.title}</CardTitle>
-                  <CardDescription className="text-xs">
-                    {artifact.description}
-                  </CardDescription>
+                  {artifact.description && (
+                    <CardDescription className="text-xs">
+                      {artifact.description}
+                    </CardDescription>
+                  )}
                 </div>
                 <Expand className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </div>
             </CardHeader>
             <CardContent>
-              {artifact.artifact_type === "image" && artifact.file_path && (
+              {artifact.file_path ? (
                 <img
-                  src={`${BASE_URL}/artifacts/${artifact.file_path}`}
+                  src={`${BASE_URL}${artifact.file_path}`}
                   alt={artifact.title}
                   className="w-full rounded-md"
+                  loading="lazy"
                 />
-              )}
-              {artifact.artifact_type === "html" && artifact.file_path && (
-                <iframe
-                  src={`${BASE_URL}/artifacts/${artifact.file_path}`}
-                  className="h-48 w-full rounded-md border-0"
-                  title={artifact.title}
-                />
+              ) : (
+                <div className="flex h-48 items-center justify-center rounded-md bg-muted">
+                  <p className="text-xs text-muted-foreground">No preview</p>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -97,19 +107,16 @@ export function ChartGrid({ artifacts, loading }: ChartGridProps) {
               <DialogTitle>{expanded.title}</DialogTitle>
             </DialogHeader>
             <div className="max-h-[75vh] overflow-auto">
-              {expanded.artifact_type === "image" && expanded.file_path && (
+              {expanded.file_path ? (
                 <img
-                  src={`${BASE_URL}/artifacts/${expanded.file_path}`}
+                  src={`${BASE_URL}${expanded.file_path}`}
                   alt={expanded.title}
                   className="w-full"
                 />
-              )}
-              {expanded.artifact_type === "html" && expanded.file_path && (
-                <iframe
-                  src={`${BASE_URL}/artifacts/${expanded.file_path}`}
-                  className="h-[70vh] w-full border-0"
-                  title={expanded.title}
-                />
+              ) : (
+                <div className="flex h-48 items-center justify-center rounded-md bg-muted">
+                  <p className="text-xs text-muted-foreground">No preview</p>
+                </div>
               )}
             </div>
           </DialogContent>

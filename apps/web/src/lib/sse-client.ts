@@ -30,6 +30,20 @@ export function createEventSource<T>(options: SSEOptions<T>) {
       onOpen?.();
     };
 
+    // Listen for named "trace" events from the backend
+    eventSource.addEventListener("trace", (event: MessageEvent) => {
+      if (event.lastEventId) {
+        lastEventId = event.lastEventId;
+      }
+      try {
+        const data = JSON.parse(event.data) as T;
+        onEvent(data);
+      } catch {
+        // non-JSON data, ignore
+      }
+    });
+
+    // Also handle generic messages (fallback)
     eventSource.onmessage = (event) => {
       if (event.lastEventId) {
         lastEventId = event.lastEventId;

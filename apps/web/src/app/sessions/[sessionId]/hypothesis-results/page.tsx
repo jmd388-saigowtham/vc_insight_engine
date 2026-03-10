@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
-import { useUpdateSession } from "@/hooks/use-session";
+import { useWizardNavigation } from "@/hooks/use-wizard-navigation";
 import {
   Card,
   CardContent,
@@ -14,11 +14,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
   ArrowRight,
   ChevronDown,
@@ -31,9 +26,8 @@ import type { Hypothesis } from "@/types/api";
 
 export default function HypothesisResultsPage() {
   const params = useParams();
-  const router = useRouter();
   const sessionId = params.sessionId as string;
-  const updateSession = useUpdateSession(sessionId);
+  const { navigateToNext, isPending } = useWizardNavigation("hypothesis-results");
 
   const { data: hypotheses, isLoading } = useQuery({
     queryKey: ["hypothesis-results", sessionId],
@@ -45,13 +39,7 @@ export default function HypothesisResultsPage() {
     hypotheses?.filter((h) => h.result !== null) ?? [];
 
   function handleContinue() {
-    updateSession.mutate(
-      { current_step: "models" },
-      {
-        onSuccess: () =>
-          router.push(`/sessions/${sessionId}/models`),
-      },
-    );
+    navigateToNext("models");
   }
 
   if (isLoading) {
@@ -109,9 +97,9 @@ export default function HypothesisResultsPage() {
           className="gap-2"
           size="lg"
           onClick={handleContinue}
-          disabled={updateSession.isPending}
+          disabled={isPending}
         >
-          {updateSession.isPending ? (
+          {isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <ArrowRight className="h-4 w-4" />
@@ -129,60 +117,59 @@ function HypothesisRow({ hypothesis }: { hypothesis: Hypothesis }) {
   const supported = r.supported;
 
   return (
-    <Collapsible asChild open={open} onOpenChange={setOpen}>
-      <>
-        <CollapsibleTrigger asChild>
-          <tr className="cursor-pointer border-b hover:bg-muted/50">
-            <td className="px-4 py-3 max-w-xs">
-              <div className="flex items-center gap-2">
-                {supported ? (
-                  <CheckCircle className="h-4 w-4 shrink-0 text-green-500" />
-                ) : (
-                  <XCircle className="h-4 w-4 shrink-0 text-red-500" />
-                )}
-                <span className="truncate">{hypothesis.statement}</span>
-              </div>
-            </td>
-            <td className="px-4 py-3 font-mono text-xs">
-              {r.test_statistic.toFixed(4)}
-            </td>
-            <td className="px-4 py-3">
-              <Badge
-                variant={r.p_value < 0.05 ? "default" : "secondary"}
-                className="font-mono text-xs"
-              >
-                {r.p_value.toFixed(6)}
-              </Badge>
-            </td>
-            <td className="px-4 py-3">
-              <Badge
-                variant={supported ? "default" : "destructive"}
-                className={cn(
-                  "text-xs",
-                  supported && "bg-green-500/10 text-green-700",
-                )}
-              >
-                {supported ? "Supported" : "Rejected"}
-              </Badge>
-            </td>
-            <td className="px-4 py-3">
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 text-muted-foreground transition-transform",
-                  open && "rotate-180",
-                )}
-              />
-            </td>
-          </tr>
-        </CollapsibleTrigger>
-        <CollapsibleContent asChild>
-          <tr className="border-b bg-muted/30">
-            <td colSpan={5} className="px-4 py-3 text-sm">
-              {r.conclusion}
-            </td>
-          </tr>
-        </CollapsibleContent>
-      </>
-    </Collapsible>
+    <>
+      <tr
+        className="cursor-pointer border-b hover:bg-muted/50"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <td className="px-4 py-3 max-w-xs">
+          <div className="flex items-center gap-2">
+            {supported ? (
+              <CheckCircle className="h-4 w-4 shrink-0 text-green-500" />
+            ) : (
+              <XCircle className="h-4 w-4 shrink-0 text-red-500" />
+            )}
+            <span className="truncate">{hypothesis.statement}</span>
+          </div>
+        </td>
+        <td className="px-4 py-3 font-mono text-xs">
+          {r.test_statistic.toFixed(4)}
+        </td>
+        <td className="px-4 py-3">
+          <Badge
+            variant={r.p_value < 0.05 ? "default" : "secondary"}
+            className="font-mono text-xs"
+          >
+            {r.p_value.toFixed(6)}
+          </Badge>
+        </td>
+        <td className="px-4 py-3">
+          <Badge
+            variant={supported ? "default" : "destructive"}
+            className={cn(
+              "text-xs",
+              supported && "bg-green-500/10 text-green-700",
+            )}
+          >
+            {supported ? "Supported" : "Rejected"}
+          </Badge>
+        </td>
+        <td className="px-4 py-3">
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-muted-foreground transition-transform",
+              open && "rotate-180",
+            )}
+          />
+        </td>
+      </tr>
+      {open && (
+        <tr className="border-b bg-muted/30">
+          <td colSpan={5} className="px-4 py-3 text-sm">
+            {r.conclusion}
+          </td>
+        </tr>
+      )}
+    </>
   );
 }

@@ -269,6 +269,109 @@ def scale_numeric(
     )
 
 
+def create_polynomial_features(
+    file_path: str,
+    columns: list[str],
+    degree: int = 2,
+    output_path: str = "",
+    interaction_only: bool = False,
+) -> PreprocessResult:
+    """Create polynomial features (degree-2 by default) for selected numeric columns."""
+    from sklearn.preprocessing import PolynomialFeatures
+
+    path = _validate_path(file_path)
+    out = Path(output_path).resolve() if output_path else path
+    df = _read_df(path)
+    errors: list[str] = []
+    changes: list[str] = []
+
+    missing = [c for c in columns if c not in df.columns]
+    if missing:
+        errors.append(f"Columns not found: {missing}")
+        columns = [c for c in columns if c in df.columns]
+
+    non_numeric = [c for c in columns if not pd.api.types.is_numeric_dtype(df[c])]
+    if non_numeric:
+        errors.append(f"Non-numeric columns skipped: {non_numeric}")
+        columns = [c for c in columns if c not in non_numeric]
+
+    if not columns:
+        return PreprocessResult(
+            success=False,
+            output_path=str(out),
+            rows=len(df),
+            columns=len(df.columns),
+            changes_summary="No valid columns for polynomial features",
+            errors=errors,
+        )
+
+    poly = PolynomialFeatures(degree=degree, interaction_only=interaction_only, include_bias=False)
+    poly_data = poly.fit_transform(df[columns].fillna(0))
+    poly_names = poly.get_feature_names_out(columns)
+
+    # Only add new columns (skip the original ones)
+    new_cols = poly_names[len(columns):]
+    new_data = poly_data[:, len(columns):]
+
+    for i, name in enumerate(new_cols):
+        df[name] = new_data[:, i]
+
+    changes.append(f"Added {len(new_cols)} polynomial feature(s) from {columns}")
+
+    _save_df(df, out)
+
+    return PreprocessResult(
+        success=True,
+        output_path=str(out),
+        rows=len(df),
+        columns=len(df.columns),
+        changes_summary="; ".join(changes),
+        errors=errors,
+    )
+
+
+def create_interaction_features(
+    file_path: str,
+    column_pairs: list[tuple[str, str]],
+    output_path: str = "",
+) -> PreprocessResult:
+    """Create pairwise interaction features (multiplication) for specified column pairs."""
+    path = _validate_path(file_path)
+    out = Path(output_path).resolve() if output_path else path
+    df = _read_df(path)
+    errors: list[str] = []
+    changes: list[str] = []
+
+    for col_a, col_b in column_pairs:
+        if col_a not in df.columns:
+            errors.append(f"Column not found: {col_a}")
+            continue
+        if col_b not in df.columns:
+            errors.append(f"Column not found: {col_b}")
+            continue
+        if not pd.api.types.is_numeric_dtype(df[col_a]):
+            errors.append(f"Non-numeric column: {col_a}")
+            continue
+        if not pd.api.types.is_numeric_dtype(df[col_b]):
+            errors.append(f"Non-numeric column: {col_b}")
+            continue
+
+        interaction_name = f"{col_a}_x_{col_b}"
+        df[interaction_name] = df[col_a].fillna(0) * df[col_b].fillna(0)
+        changes.append(f"Created {interaction_name}")
+
+    _save_df(df, out)
+
+    return PreprocessResult(
+        success=len(errors) == 0,
+        output_path=str(out),
+        rows=len(df),
+        columns=len(df.columns),
+        changes_summary="; ".join(changes) if changes else "No interactions created",
+        errors=errors,
+    )
+
+
 def create_pipeline(steps: list[PreprocessStep]) -> str:
     """Generate sklearn Pipeline code from a list of preprocessing steps."""
     lines = [

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useTables, useUpdateColumnDescription } from "@/hooks/use-tables";
-import { useUpdateSession } from "@/hooks/use-session";
+import { useWizardNavigation } from "@/hooks/use-wizard-navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Card,
@@ -42,14 +42,14 @@ function ColumnRow({ col }: { col: ColumnProfile }) {
       <td className="px-3 py-2 font-medium">{col.column_name}</td>
       <td className="px-3 py-2">
         <Badge variant="outline" className="text-xs">
-          {col.data_type}
+          {col.dtype}
         </Badge>
       </td>
       <td className="px-3 py-2 text-right">
-        {col.null_percentage.toFixed(1)}%
+        {col.null_pct != null ? col.null_pct.toFixed(1) : "0"}%
       </td>
       <td className="px-3 py-2 text-right">
-        {col.unique_count.toLocaleString()}
+        {col.unique_count != null ? col.unique_count.toLocaleString() : "-"}
       </td>
       <td className="px-3 py-2">{col.min_value ?? "-"}</td>
       <td className="px-3 py-2">{col.max_value ?? "-"}</td>
@@ -57,7 +57,7 @@ function ColumnRow({ col }: { col: ColumnProfile }) {
         {col.mean_value != null ? col.mean_value.toFixed(2) : "-"}
       </td>
       <td className="px-3 py-2 text-xs text-muted-foreground">
-        {col.sample_values.slice(0, 3).join(", ")}
+        {(col.sample_values ?? []).slice(0, 3).map(String).join(", ")}
       </td>
       <td className="px-3 py-2">
         {editing ? (
@@ -94,19 +94,12 @@ function ColumnRow({ col }: { col: ColumnProfile }) {
 
 export default function ProfilingPage() {
   const params = useParams();
-  const router = useRouter();
   const sessionId = params.sessionId as string;
   const { data: tables, isLoading } = useTables(sessionId);
-  const updateSession = useUpdateSession(sessionId);
+  const { navigateToNext, isPending } = useWizardNavigation("profiling");
 
   function handleStart() {
-    updateSession.mutate(
-      { current_step: "workspace" },
-      {
-        onSuccess: () =>
-          router.push(`/sessions/${sessionId}/workspace`),
-      },
-    );
+    navigateToNext("workspace");
   }
 
   if (isLoading) {
@@ -136,23 +129,23 @@ export default function ProfilingPage() {
         </p>
       </div>
 
-      <Tabs defaultValue={tables[0].file.id}>
+      <Tabs defaultValue={tables[0].file_id}>
         <TabsList>
           {tables.map((t) => (
-            <TabsTrigger key={t.file.id} value={t.file.id}>
-              {t.file.filename}
+            <TabsTrigger key={t.file_id} value={t.file_id}>
+              {t.filename}
             </TabsTrigger>
           ))}
         </TabsList>
 
         {tables.map((t) => (
-          <TabsContent key={t.file.id} value={t.file.id}>
+          <TabsContent key={t.file_id} value={t.file_id}>
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">{t.file.filename}</CardTitle>
+                <CardTitle className="text-base">{t.filename}</CardTitle>
                 <CardDescription>
-                  {t.file.row_count?.toLocaleString()} rows,{" "}
-                  {t.file.column_count} columns
+                  {t.row_count?.toLocaleString()} rows,{" "}
+                  {t.column_count} columns
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -188,9 +181,9 @@ export default function ProfilingPage() {
         className="gap-2"
         size="lg"
         onClick={handleStart}
-        disabled={updateSession.isPending}
+        disabled={isPending}
       >
-        {updateSession.isPending ? (
+        {isPending ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <ArrowRight className="h-4 w-4" />

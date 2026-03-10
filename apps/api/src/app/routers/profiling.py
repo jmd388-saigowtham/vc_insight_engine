@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db_session
@@ -40,6 +41,62 @@ async def update_column_description(
     if profile is None:
         raise HTTPException(status_code=404, detail="Column profile not found")
     return ColumnProfileResponse.model_validate(profile)
+
+
+class SheetInfoResponse(BaseModel):
+    name: str
+    index: int
+
+
+class ListSheetsResponse(BaseModel):
+    sheets: list[SheetInfoResponse] = Field(default_factory=list)
+    is_multi_sheet: bool = False
+
+
+@router.get("/files/{file_id}/sheets", response_model=ListSheetsResponse)
+async def list_sheets(
+    file_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db_session),
+) -> ListSheetsResponse:
+    """List sheets in an uploaded xlsx file."""
+    from app.models.uploaded_file import UploadedFile
+
+    file_obj = await db.get(UploadedFile, file_id)
+    if file_obj is None:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    storage_path = file_obj.storage_path
+    if not storage_path:
+        raise HTTPException(status_code=404, detail="File path not available")
+
+    p = Path(storage_path)
+    if not p.exists():
+        from app.config import settings
+        p = Path(settings.upload_dir) / storage_path
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="File not found on disk")
+
+    ext = p.suffix.lower()
+    if ext == ".csv":
+        return ListSheetsResponse(
+            sheets=[SheetInfoResponse(name="Sheet1", index=0)],
+            is_multi_sheet=False,
+        )
+
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(p, read_only=True, data_only=True)
+        sheets = [
+            SheetInfoResponse(name=name, index=i)
+            for i, name in enumerate(wb.sheetnames)
+        ]
+        wb.close()
+        return ListSheetsResponse(
+            sheets=sheets,
+            is_multi_sheet=len(sheets) > 1,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read sheets: {e}")
 
 
 @router.get("/sessions/{session_id}/tables", response_model=list[ProfileSummary])

@@ -28,7 +28,9 @@ def _validate_path(file_path: str) -> Path:
     return p
 
 
-def _read_dataframe(path: Path, nrows: int | None = None) -> pd.DataFrame:
+def _read_dataframe(
+    path: Path, nrows: int | None = None, sheet_name: str | int = 0,
+) -> pd.DataFrame:
     """Read a CSV or XLSX file into a DataFrame."""
     ext = path.suffix.lower()
     if ext == ".csv":
@@ -46,7 +48,7 @@ def _read_dataframe(path: Path, nrows: int | None = None) -> pd.DataFrame:
             return pd.concat(chunks, ignore_index=True) if chunks else pd.DataFrame()
         return pd.read_csv(path, nrows=nrows)
     else:
-        return pd.read_excel(path, engine="openpyxl", nrows=nrows)
+        return pd.read_excel(path, engine="openpyxl", nrows=nrows, sheet_name=sheet_name)
 
 
 # ---------------------------------------------------------------------------
@@ -57,6 +59,7 @@ def _read_dataframe(path: Path, nrows: int | None = None) -> pd.DataFrame:
 class ProfileInput(BaseModel):
     file_path: str
     sample_size: int = 100_000
+    sheet_name: str | int = 0
 
 
 class ProfileOutput(BaseModel):
@@ -68,6 +71,7 @@ class ProfileOutput(BaseModel):
 class SampleInput(BaseModel):
     file_path: str
     n: int = 100
+    sheet_name: str | int = 0
 
 
 class SampleOutput(BaseModel):
@@ -83,6 +87,20 @@ class RowCountOutput(BaseModel):
     count: int
 
 
+class SheetInfo(BaseModel):
+    name: str
+    index: int
+
+
+class ListSheetsInput(BaseModel):
+    file_path: str
+
+
+class ListSheetsOutput(BaseModel):
+    sheets: list[SheetInfo]
+    is_multi_sheet: bool
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -94,12 +112,30 @@ def _safe_str(value: Any) -> str | None:
     return str(value)
 
 
+def list_sheets(input: ListSheetsInput) -> ListSheetsOutput:
+    """List all sheets in an xlsx file. Returns single sheet for CSV."""
+    path = _validate_path(input.file_path)
+    if path.suffix.lower() == ".csv":
+        return ListSheetsOutput(
+            sheets=[SheetInfo(name="Sheet1", index=0)],
+            is_multi_sheet=False,
+        )
+    from openpyxl import load_workbook
+    wb = load_workbook(path, read_only=True, data_only=True)
+    sheets = [SheetInfo(name=name, index=i) for i, name in enumerate(wb.sheetnames)]
+    wb.close()
+    return ListSheetsOutput(
+        sheets=sheets,
+        is_multi_sheet=len(sheets) > 1,
+    )
+
+
 def profile(input: ProfileInput) -> ProfileOutput:
     """Profile all columns in the given file."""
     path = _validate_path(input.file_path)
     file_size = path.stat().st_size
 
-    df = _read_dataframe(path, nrows=input.sample_size)
+    df = _read_dataframe(path, nrows=input.sample_size, sheet_name=input.sheet_name)
     total_rows = len(df)
 
     profiles: list[ColumnProfile] = []
@@ -147,7 +183,7 @@ def profile(input: ProfileInput) -> ProfileOutput:
 def sample(input: SampleInput) -> SampleOutput:
     """Return the first *n* rows as a list of dicts."""
     path = _validate_path(input.file_path)
-    df = _read_dataframe(path, nrows=input.n)
+    df = _read_dataframe(path, nrows=input.n, sheet_name=input.sheet_name)
     # Replace NaN with None for JSON serialisability
     df = df.where(pd.notnull(df), None)
     return SampleOutput(

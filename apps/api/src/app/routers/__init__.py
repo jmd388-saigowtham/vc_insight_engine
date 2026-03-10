@@ -1,4 +1,14 @@
-from app.routers import artifacts, code, events, health, profiling, sessions, uploads
+from app.routers import (
+    artifacts,
+    code,
+    events,
+    health,
+    pipeline,
+    profiling,
+    proposals,
+    sessions,
+    uploads,
+)
 
 __all__ = [
     "health",
@@ -8,4 +18,6 @@ __all__ = [
     "events",
     "code",
     "artifacts",
+    "pipeline",
+    "proposals",
 ]

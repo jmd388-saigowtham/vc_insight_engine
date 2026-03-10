@@ -3,7 +3,7 @@ from __future__ import annotations
 from arq.connections import RedisSettings
 
 from app.config import settings
-from app.worker.tasks import run_step
+from app.worker.tasks import rerun_from_step, resume_step, run_step
 
 
 def _parse_redis_url(url: str) -> RedisSettings:
@@ -20,7 +20,7 @@ def _parse_redis_url(url: str) -> RedisSettings:
 
 
 class WorkerSettings:
-    functions = [run_step]
+    functions = [run_step, resume_step, rerun_from_step]
     redis_settings = _parse_redis_url(settings.redis_url)
     max_jobs = 10
     job_timeout = 600
